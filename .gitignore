@@ -1,0 +1,22 @@
+# Dependencies and generated output
+**/node_modules/
+**/dist/
+**/coverage/
+**/.vite/
+
+# Local secrets and credentials
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+
+# Logs and local editor/OS files
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
