@@ -6,6 +6,7 @@ import * as auth from "../controller/authController.js";
 import { googleOAuthConfigured } from "../config/passport.js";
 import isLoggedIn from "../middleware/isLoggedIn.js";
 import uploadImage from "../middleware/uploadImage.js";
+import userModel from "../models/userModel.js";
 
 const router = Router();
 const authLimiter = rateLimit({
@@ -54,6 +55,11 @@ router.post("/verify-otp", auth.verifyOtp);
 router.post("/signin", auth.signIn);
 router.post("/refresh", auth.refreshAccessToken);
 router.post("/signout", auth.signOut);
+router.get("/me", isLoggedIn, async (req, res) => {
+  const user = await userModel.findById(req.userId).select("displayName email").lean();
+  if (!user) { res.status(401).json({ msg: "User not found" }); return; }
+  res.json({ user: { id: user._id, displayName: user.displayName || null, email: user.email } });
+});
 router.get("/google", requireGoogleConfig, startGoogleOAuth);
 router.get("/google/callback", requireGoogleConfig, verifyGoogleOAuthState, passport.authenticate("google", {
   session: false,

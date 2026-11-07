@@ -6,6 +6,7 @@ import express from "express";
 import passport from "passport";
 import authRoutes from "./routes/authRoutes.js";
 import switchRoutes from "./routes/switchRoutes.js";
+import storageRoutes from "./routes/storageRoutes.js";
 import verifyRequestOrigin from "./middleware/verifyRequestOrigin.js";
 
 const app = express();
@@ -17,6 +18,7 @@ app.use(cookieParser());
 app.use(passport.initialize());
 app.use("/api/auth", verifyRequestOrigin, authRoutes);
 app.use("/api/switch", verifyRequestOrigin, switchRoutes);
+app.use("/api/storage", verifyRequestOrigin, storageRoutes);
 
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error("Unhandled request error", error);

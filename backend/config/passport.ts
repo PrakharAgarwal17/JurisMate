@@ -19,13 +19,18 @@ if (clientID && clientSecret && callbackURL) {
         if (!email.success || !isVerified) return done(null, false);
 
         const normalizedEmail = email.data.toLowerCase();
+        const displayName = profile.displayName?.trim().slice(0, 200);
         let user = await userModel.findOne({
           oauthIdentities: { $elemMatch: { provider: "google", providerId: profile.id } },
         });
-        if (user) return done(null, user);
+        if (user) {
+          if (displayName && user.displayName !== displayName) { user.displayName = displayName; await user.save(); }
+          return done(null, user);
+        }
 
         user = await userModel.findOne({ email: normalizedEmail });
         if (user) {
+          if (displayName) user.displayName = displayName;
           if (!user.isVerified) {
             user.isVerified = true;
           }
@@ -36,6 +41,7 @@ if (clientID && clientSecret && callbackURL) {
 
         user = await userModel.create({
           email: normalizedEmail,
+          displayName,
           isVerified: true,
           oauthIdentities: [{ provider: "google", providerId: profile.id }],
         });

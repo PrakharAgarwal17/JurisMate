@@ -1,12 +1,14 @@
 import { randomInt } from "node:crypto";
 import type { Request, Response } from "express";
+import { unlink } from "node:fs/promises";
 import bcrypt from "bcrypt";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { z } from "zod";
 import userModel from "../models/userModel.js";
 import { clearAuthCookies, hashToken, issueAuthTokens, tokenHashMatches } from "../utils/authTokens.js";
 import { sendSignupOtp } from "../utils/mailer.js";
-import cloudinary from "../config/cloudinary.js";
+import { detectFileKind } from "../tools/fileContext.js";
+import { uploadLocalFile } from "../tools/cloudinaryStorage.js";
 
 const emailSchema = z.string().trim().toLowerCase().pipe(z.email());
 const passwordSchema = z.string().min(8, "Password must be at least 8 characters")
@@ -204,14 +206,12 @@ export async function uploadProfileImage(req: Request, res: Response): Promise<R
   if (!req.file) return res.status(400).json({ msg: "Choose an image to upload" });
 
   try {
-    const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
-      cloudinary.uploader.upload_stream(
-        { folder: "jurismate/profile-images", public_id: req.userId, overwrite: true, resource_type: "image" },
-        (error, uploaded) => {
-          if (error || !uploaded) reject(error ?? new Error("Image upload failed"));
-          else resolve({ secure_url: uploaded.secure_url });
-        },
-      ).end(req.file!.buffer);
+    await detectFileKind(req.file.path, req.file.mimetype);
+    const result = await uploadLocalFile(req.file.path, {
+      folder: "jurismate/profile-images",
+      public_id: req.userId,
+      overwrite: true,
+      resource_type: "image",
     });
     const user = await userModel.findByIdAndUpdate(
       req.userId,
@@ -223,5 +223,7 @@ export async function uploadProfileImage(req: Request, res: Response): Promise<R
   } catch (error) {
     console.error("Profile image upload failed", error);
     return res.status(500).json({ msg: "Could not upload profile image" });
+  } finally {
+    await unlink(req.file.path).catch(() => undefined);
   }
 }

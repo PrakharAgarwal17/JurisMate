@@ -11,6 +11,7 @@ const oauthIdentitySchema = new mongoose.Schema(
 const userSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    displayName: { type: String, trim: true, maxlength: 200 },
     password: { type: String, select: false },
     oauthIdentities: { type: [oauthIdentitySchema], default: [] },
     profileImage: { type: String },

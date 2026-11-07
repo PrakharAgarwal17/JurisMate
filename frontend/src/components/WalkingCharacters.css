@@ -1,0 +1,39 @@
+.landing { padding-bottom: 58px; }
+.character-parade { height: 100px; }
+.walking-character { position: absolute; bottom: 0; left: 0; width: 44px; height: 35px; padding: 0; border: 0; background: transparent; pointer-events: auto; cursor: pointer; }
+.walking-character.switch-mascot { width: 56px; height: 45px; }
+.switch-mascot .character-body { width: 56px; height: 45px; }
+.switch-mascot .character-message { bottom: 50px; }
+.walking-character:hover, .walking-character:focus-visible { z-index: 1; }
+.character-message { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: max-content; max-width: 180px; padding: 7px 10px; border: 1px solid #d8e2d4; border-radius: 10px; background: #fff; color: #214631; font: 600 12px/1.3 sans-serif; opacity: 0; visibility: hidden; pointer-events: none; box-shadow: 0 3px 12px #163d2d1c; }
+.walking-character:hover .character-message, .walking-character:focus .character-message { opacity: 1; visibility: visible; }
+.character-body { overflow: visible; animation: character-bob 0.7s ease-in-out infinite alternate; }
+.character-leg { transform-origin: 50% 43px; }
+.leg-one { animation: character-step 0.35s ease-in-out infinite alternate; }
+.leg-two { animation: character-step 0.35s ease-in-out infinite alternate-reverse; }
+.character-arm { transform-origin: center; }
+.arm-left { animation: character-wave 0.7s ease-in-out infinite alternate; }
+.arm-right { animation: character-wave 0.7s ease-in-out infinite alternate-reverse; }
+@keyframes character-bob { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+@keyframes character-step { from { transform: translateX(-1px) rotate(-8deg); } to { transform: translateX(1px) rotate(8deg); } }
+@keyframes character-wave { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
+@media (max-width: 600px) {
+  .walking-character { width: 36px; height: 29px; }
+  .walking-character .character-body { width: 36px; height: 29px; }
+  .walking-character.switch-mascot, .switch-mascot .character-body { width: 46px; height: 37px; }
+  .character-message { bottom: 35px; max-width: 150px; white-space: normal; }
+  .switch-mascot .character-message { bottom: 42px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .character-body, .character-leg, .character-arm { animation: none; }
+  .walking-character:nth-child(1) { left: 2%; }
+  .walking-character:nth-child(2) { left: 12%; }
+  .walking-character:nth-child(3) { left: 22%; }
+  .walking-character:nth-child(4) { left: 32%; }
+  .walking-character:nth-child(5) { left: 42%; }
+  .walking-character:nth-child(6) { left: 52%; }
+  .walking-character:nth-child(7) { left: 62%; }
+  .walking-character:nth-child(8) { left: 72%; }
+  .walking-character:nth-child(9) { left: 82%; }
+  .walking-character:nth-child(10) { left: 92%; }
+}

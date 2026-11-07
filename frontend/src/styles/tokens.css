@@ -1,0 +1,11 @@
+:root {
+  --jm-paper: #fdf8f3;
+  --jm-ink: #283a32;
+  --jm-muted: #6f7068;
+  --jm-accent: #a64f36;
+  --jm-line: #e8ddd3;
+  --jm-serif: 'DM Serif Display', Georgia, serif;
+  --jm-sans: 'DM Sans', sans-serif;
+  --jm-radius: 12px;
+  --jm-space: clamp(20px, 3vw, 48px);
+}
