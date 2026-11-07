@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import WebSocket from "ws";
 import { switchAgentConfig } from "../config/switchAgent.js";
-import askGemini from "../tools/gemini.js";
+import askGroq from "../tools/groq.js";
 import { postToSwitchRoom } from "../utils/switchMessaging.js";
 
 type Frame = {
@@ -54,7 +54,7 @@ export function startSwitchListener(): void {
         if (roomId && payload?.addressed && payload.sender_kind !== "platform" && payload.body?.trim()) {
           let reply: string;
           try {
-            reply = await askGemini([
+            reply = await askGroq([
               { role: "system", content: "You are JurisMate, an AI assistant for advocates. Answer the current request using only provided information. Do not invent facts or citations. Mark legal work as a draft for advocate review. Do not claim to have accessed documents or tools you have not used." },
               { role: "user", content: payload.body.slice(0, 20000) },
             ]);

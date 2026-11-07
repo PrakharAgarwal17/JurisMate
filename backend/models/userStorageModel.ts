@@ -27,6 +27,7 @@ const userStorageSchema = new mongoose.Schema(
     contextTruncated: { type: Boolean, default: false },
     imageAnalysis: { type: String },
     sourceMessageId: { type: String },
+    sourceMediaUri: { type: String, select: false },
     highlights: { type: [highlightSchema], default: [] },
   },
   { timestamps: true, collection: "userstorage" },

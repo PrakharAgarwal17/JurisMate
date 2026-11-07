@@ -14,6 +14,7 @@ export default function RoomStorage({ roomId }: { roomId: string }) {
   const [busy, setBusy] = useState(false)
   const [fileKey, setFileKey] = useState(0)
   const [analysis, setAnalysis] = useState<{ key: string; text: string } | null>(null)
+  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     let active = true
@@ -33,6 +34,16 @@ export default function RoomStorage({ roomId }: { roomId: string }) {
       const response = await api.post<{ item: Item }>(`/api/storage/chats/${roomId}/files`, data)
       setItems(previous => [response.data.item, ...previous]); setFile(null); setFileKey(value => value + 1)
     } catch (err) { setError(axios.isAxiosError(err) && typeof err.response?.data?.msg === 'string' ? err.response.data.msg : 'Upload failed. Please try again.') }
+    finally { setBusy(false) }
+  }
+
+  async function importFiles() {
+    setBusy(true); setError(''); setNotice('')
+    try {
+      const result = await api.post<{ imported: number; skipped: number }>(`/api/storage/chats/${roomId}/import-switch`)
+      const response = await api.get<{ items: Item[] }>(`/api/storage/chats/${roomId}/items`)
+      setItems(response.data.items); setNotice(`Imported ${result.data.imported} files. ${result.data.skipped} unsupported or unavailable files skipped.`)
+    } catch { setError('Could not import files. Verify the room and check Switch and Cloudinary.') }
     finally { setBusy(false) }
   }
 
@@ -64,6 +75,8 @@ export default function RoomStorage({ roomId }: { roomId: string }) {
 
   return <section className="switch-room room-storage"><h2>Room storage</h2><p>Keep this matter’s PDFs, images and important notes together. Each item has a unique reference key.</p>
     {error && <p className="home-error" role="alert">{error}</p>}
+    {notice && <p role="status">{notice}</p>}
+    <p>Import supported attachments from recent messages in the connected Switch room (up to 20 MB each).</p><button type="button" className="room-open" onClick={() => void importFiles()} disabled={busy}>Import chat files</button>
     <form onSubmit={upload}><label htmlFor="room-file">Upload a PDF or image</label><input key={fileKey} id="room-file" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" onChange={event => setFile(event.target.files?.[0] ?? null)} required /><button className="home-add" disabled={busy || !file}>{busy ? 'Please wait…' : 'Upload file'}</button></form>
     <form onSubmit={saveNote}><label htmlFor="note-title">Save important information</label><input id="note-title" value={title} onChange={event => setTitle(event.target.value)} maxLength={200} placeholder="Note title" required /><textarea aria-label="Note contents" value={content} onChange={event => setContent(event.target.value)} maxLength={100000} placeholder="Write your note…" required /><button className="home-add" disabled={busy}>Save note</button></form>
     <h3>Saved items</h3>{loading ? <p>Loading storage…</p> : items.length === 0 ? <p>No files or notes saved yet.</p> : <div className="stored-list">{items.map(item => <article key={item._id}><strong>{item.title}</strong><span>{item.kind === 'file' ? 'File' : 'Note'} · {item.storageKey}</span>{item.kind === 'note' && <p>{item.content}</p>}{item.kind === 'file' && <><button className="room-open" onClick={() => void download(item)}>Open file ↗</button>{' · '}<button className="room-open" disabled={busy} onClick={() => void extract(item)}>Extract context</button></>}{analysis?.key === item.storageKey && <p>{analysis.text}</p>}</article>)}</div>}

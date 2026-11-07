@@ -2,6 +2,7 @@ import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import * as switchController from "../controller/switchController.js";
 import isLoggedIn from "../middleware/isLoggedIn.js";
+import { courtroomHistory, courtroomTurn } from "../controller/courtroomController.js";
 
 const router = Router();
 const messageLimiter = rateLimit({
@@ -23,5 +24,7 @@ router.post("/rooms/:roomId/verification", verificationLimiter, switchController
 router.post("/rooms/:roomId/verification/confirm", verificationLimiter, switchController.verifyRoom);
 router.get("/rooms/:roomId/messages", switchController.roomHistory);
 router.post("/rooms/:roomId/messages", messageLimiter, switchController.sendRoomMessage);
+router.get("/rooms/:roomId/courtroom", courtroomHistory);
+router.post("/rooms/:roomId/courtroom", messageLimiter, courtroomTurn);
 
 export default router;

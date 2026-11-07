@@ -24,12 +24,12 @@ The backend is in development. The frontend is currently the default Vite starte
 
 - **Authentication:** email/password signup with email OTP, bcrypt password hashing, access and refresh tokens in HTTP-only cookies, and Google OAuth account linking. OTP state is held in server memory and expires after five minutes.
 - **Profile image:** an authenticated upload route stores the image using Cloudinary.
-- **Switch integration:** a registered JurisMate agent can connect to Switch through a WebSocket listener. It receives addressed messages, sends their text to Gemini, and posts the response to the Switch room. Switch must have the agent in the room and a messaging platform connected for external chat delivery.
+- **Switch integration:** a registered JurisMate agent can connect to Switch through a WebSocket listener. It receives addressed messages, sends their text to Groq, and posts the response to the Switch room. Switch must have the agent in the room and a messaging platform connected for external chat delivery.
 - **Room mapping:** authenticated users can create, list, and disconnect website records associated with Switch room IDs. Creating a mapping currently does not verify the user's ownership or membership of that Switch room.
 - **Storage APIs:** upload PDFs and supported images to Cloudinary, list stored items, create signed download links, and save important notes under a room record.
-- **Document processing:** extract PDF text, attempt OCR on up to five pages without extracted text, and analyze supported images with Gemini. Large extracted text can be truncated.
+- **Document processing:** extract PDF text, attempt OCR on up to five pages without extracted text, and analyze supported images with Groq. Large extracted text can be truncated.
 - **Highlights:** store a selected quote, optional page number, and note as metadata for a stored file. This does not modify the original PDF or image.
-- **Chat summary:** a backend endpoint can read available Switch room context, save messages and a generated summary against a room record. This is separate from the live listener and requires Switch room access and Gemini configuration.
+- **Chat summary:** a backend endpoint can read available Switch room context, save messages and a generated summary against a room record. This is separate from the live listener and requires Switch room access and Groq configuration.
 
 ### Planned or incomplete
 
@@ -68,7 +68,7 @@ Discord / Slack
        ↕
 Switch server and collaboration bridge
        ↕ WebSocket events and agent API
-JurisMate backend ─────→ Gemini API
+JurisMate backend ─────→ Groq API
        ↕                    (text and image analysis)
 MongoDB + Cloudinary
        ↕
@@ -87,7 +87,7 @@ The current live agent handles the addressed message text. It does not yet autom
 | Authentication | JWT access/refresh cookies, bcrypt, Passport Google OAuth, Nodemailer |
 | Validation and uploads | Zod, Multer |
 | File storage | Cloudinary |
-| AI | Gemini API |
+| AI | Groq API |
 | Agent and chat coordination | Switch, Discord/Slack bridges |
 
 ## Getting started
@@ -96,7 +96,7 @@ The current live agent handles the addressed message text. It does not yet autom
 
 - Node.js and npm, plus a reachable MongoDB instance.
 - A running Switch server with JurisMate registered and added to the intended Switch room.
-- A Gemini API key. For uploads, email OTP, or Google login, configure the respective Cloudinary, Gmail, and Google OAuth credentials.
+- A Groq API key. For uploads, email OTP, or Google login, configure the respective Cloudinary, Gmail, and Google OAuth credentials.
 - A connected Discord or Slack app in Switch if testing through those platforms.
 
 ### Backend
@@ -117,7 +117,7 @@ Copy `backend/.env.example` to `backend/.env` and fill in the required values:
 | `CLOUD_NAME`, `API_KEY`, `API_SECRET` | Cloudinary account credentials. |
 | `SWITCH_AGENT_BRIDGE_URL`, `SWITCH_AGENT_ID`, `SWITCH_AGENT_API_KEY` | The Switch server URL and credentials for the registered JurisMate agent. |
 | `SWITCH_REGISTRATION_TOKEN` | Registration credential used when registering a new custom agent with Switch. |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | Gemini access and model selection; the example uses `gemini-3.6-flash`. |
+| `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_VISION_MODEL` | Groq access and text/vision model selection. |
 
 Registration and agent API keys have different purposes. Keep all credentials in the ignored `.env` file and do not commit them. A Switch agent API key is returned during registration; avoid registering the same agent again or overwriting its credentials unintentionally.
 
@@ -166,7 +166,7 @@ The backend defaults to port `5000`. Room and storage routes require a signed-in
 
 ## Data and review boundaries
 
-- Content submitted to Gemini for responses, image analysis, OCR, or summaries is sent to Google; uploaded files are stored with Cloudinary. Review provider settings and permissions before using confidential matter data.
+- Content submitted to Groq for responses, image analysis, OCR, or summaries is sent to Groq; uploaded files are stored with Cloudinary. Review provider settings and permissions before using confidential matter data.
 - Storage routes check the signed-in user against the room owner. Switch room ownership is not yet verified when a mapping is created, so the current mapping flow needs stronger authorization before relying on it for sensitive collaboration.
 - The live listener's reconnect cursor is held in memory; restart recovery and multi-instance operation need further work.
 - Agent output may contain mistakes or unsupported information. Verify citations, legal interpretation, and deadlines before relying on them.
@@ -175,4 +175,4 @@ The backend defaults to port `5000`. Room and storage routes require a signed-in
 
 - [Switch documentation](https://docs.switchagents.ai/)
 - [Switch Rooms repository](https://github.com/sandbox-quantum/switch)
-- [Gemini API documentation](https://ai.google.dev/gemini-api/docs)
+- [Groq API documentation](https://console.groq.com/docs)

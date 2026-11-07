@@ -24,6 +24,7 @@ const chatSchema = new mongoose.Schema(
     verificationHash: { type: String, select: false },
     verificationExpiresAt: { type: Date, select: false },
     summary: { type: summarySchema },
+    courtroom: { type: [{ role: { type: String, enum: ["user", "claimant", "respondent", "judge"], required: true }, text: { type: String, required: true } }], default: [] },
   },
   // Keep existing room records when upgrading the old SwitchRoom model.
   { timestamps: true, collection: "switchrooms" },

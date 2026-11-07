@@ -27,6 +27,7 @@ const roomAccess: RequestHandler = async (req, res, next) => {
 router.use(["/chats/:chatId", "/items/:storageId"], roomAccess);
 router.get("/chats/:chatId/items", storage.listChatStorage);
 router.post("/chats/:chatId/files", uploadLimiter, uploadStorageFile, storage.uploadChatFile);
+router.post("/chats/:chatId/import-switch", uploadLimiter, storage.importSwitchFiles);
 router.post("/chats/:chatId/important", storage.saveImportantInformation);
 router.post("/chats/:chatId/summarize", storage.summarizeChatRoom);
 router.get("/items/:storageId/download", storage.getStorageDownload);

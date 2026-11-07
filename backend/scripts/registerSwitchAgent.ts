@@ -29,7 +29,7 @@ const response = await fetch(`${bridgeUrl}/agents`, {
       event_reporting: [],
     },
     tools: [],
-    models: [{ name: process.env.GEMINI_MODEL || "gemini-3.6-flash", description: "JurisMate Gemini model" }],
+    models: [{ name: process.env.GROQ_MODEL || "openai/gpt-oss-20b", description: "JurisMate Groq model" }],
   }),
 });
 

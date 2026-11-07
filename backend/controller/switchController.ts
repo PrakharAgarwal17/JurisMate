@@ -5,12 +5,12 @@ import { discordConfig } from "../config/discord.js";
 import { slackConfig } from "../config/slack.js";
 import chatModel from "../models/chatModel.js";
 import userStorageModel from "../models/userStorageModel.js";
-import { postToSwitchRoom, readSwitchRoom } from "../utils/switchMessaging.js";
+import { postToSwitchRoom, readSwitchRoom, channelIdFromLink, findSwitchRoomByChannel } from "../utils/switchMessaging.js";
 import { randomBytes, randomInt, createHash, createHmac } from "node:crypto";
 
 const connectRoomSchema = z.object({
   platform: z.enum([discordConfig.platform, slackConfig.platform]),
-  switchRoomId: z.string().trim().min(1).max(200),
+  channelUrl: z.string().trim().min(1).max(500),
   name: z.string().trim().min(1).max(100),
 });
 
@@ -24,12 +24,19 @@ export async function listRooms(req: Request, res: Response): Promise<void> {
 export async function connectRoom(req: Request, res: Response): Promise<void> {
   const parsed = connectRoomSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ msg: "Enter a platform, Switch room ID, and room name" });
+    res.status(400).json({ msg: "Enter a platform, channel link, and room name" });
     return;
   }
 
+  const channelId = channelIdFromLink(parsed.data.platform, parsed.data.channelUrl);
+  if (!channelId) { res.status(400).json({ msg: "Enter a valid link to the selected Discord or Slack channel." }); return; }
+  let switchRoomId: string | null;
+  try { switchRoomId = await findSwitchRoomByChannel(parsed.data.platform, channelId); }
+  catch { res.status(502).json({ msg: "Could not look up the channel in Switch. Check the Switch connection." }); return; }
+  if (!switchRoomId) { res.status(404).json({ msg: "Channel not found. Connect it to Switch and invite the JurisMate agent first." }); return; }
+
   const room = await chatModel.findOneAndUpdate(
-    { ownerId: req.userId, platform: parsed.data.platform, switchRoomId: parsed.data.switchRoomId },
+    { ownerId: req.userId, platform: parsed.data.platform, switchRoomId },
     { $set: { name: parsed.data.name, connected: true } },
     { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
   );
