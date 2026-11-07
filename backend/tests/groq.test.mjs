@@ -21,3 +21,17 @@ test('Groq requests use the selected model and search or image input', async () 
     assert.equal(requests[1].tools, undefined)
   } finally { globalThis.fetch = original }
 })
+
+test('Groq retries a short temporary rate limit', async () => {
+  process.env.GROQ_API_KEY = 'test'
+  const { default: askGroq } = await import('../tools/groq.ts')
+  const original = globalThis.fetch
+  let calls = 0
+  globalThis.fetch = async () => ++calls === 1
+    ? new Response('{}', { status: 429, headers: { 'retry-after': '0.001' } })
+    : new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }))
+  try {
+    assert.equal(await askGroq([{ role: 'user', content: 'question' }]), 'ok')
+    assert.equal(calls, 2)
+  } finally { globalThis.fetch = original }
+})

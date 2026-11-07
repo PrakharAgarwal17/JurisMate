@@ -20,7 +20,9 @@ test('courtroom requires room access and runs advocates before judge', async () 
     let modelCalls = 0
     globalThis.fetch = async (url, options) => {
       if (String(url).includes('read_context')) return new Response(JSON.stringify({ result: { threads: [] } }))
-      const request = JSON.parse(options.body); assert.equal(request.tools[0].type, 'browser_search')
+      const request = JSON.parse(options.body)
+      if (modelCalls === 0) assert.equal(request.tools[0].type, 'browser_search')
+      else assert.equal(request.tools, undefined)
       modelCalls++; if (modelCalls === 2) assert.match(request.messages[1].content, /response 1/)
       return new Response(JSON.stringify({ choices: [{ message: { content: `response ${modelCalls}` } }] }))
     }

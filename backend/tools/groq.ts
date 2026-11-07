@@ -17,15 +17,29 @@ export default async function askGroq(messages: ModelMessage[], useSearch = fals
       ? [{ type: "text", text: message.content }, ...message.images.map(image => ({ type: "image_url", image_url: { url: `data:${image.mimeType};base64,${image.data}` } }))]
       : message.content,
   }));
-  const body = JSON.stringify({ model, messages: input, ...(useSearch ? { tools: [{ type: "browser_search" }], tool_choice: "required" } : {}) });
+  const body = JSON.stringify({ model, messages: input, max_completion_tokens: 1024, ...(useSearch ? { tools: [{ type: "browser_search" }], tool_choice: "required" } : {}) });
   if (Buffer.byteLength(body, "utf8") >= 20_000_000) throw new Error("Groq inline request exceeds the 20 MB limit");
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body,
-    signal: AbortSignal.timeout(180_000),
-  });
-  if (!response.ok) throw new Error(`Groq request failed (${response.status})`);
+  let response: Response;
+  for (let attempt = 0; ; attempt++) {
+    response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body,
+      signal: AbortSignal.timeout(180_000),
+    });
+    if (response.status !== 429 || attempt >= 2) break;
+    const retryAfter = Number(response.headers.get("retry-after"));
+    const delay = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 5000;
+    if (delay > 15000) break;
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
+  if (!response.ok) {
+    if (response.status === 429) {
+      const data = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+      if (/tokens per day|requests per day/i.test(data?.error?.message ?? "")) throw new Error("Groq daily quota exhausted");
+    }
+    throw new Error(`Groq request failed (${response.status})`);
+  }
   const result = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
   const text = result.choices?.[0]?.message?.content?.trim();
   if (!text) throw new Error("Groq returned no text response");
