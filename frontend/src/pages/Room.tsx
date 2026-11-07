@@ -11,27 +11,25 @@ import './Home.css'
 type RoomInfo = { _id: string; name: string; platform: string; connected: boolean; ownerId: string; switchVerified?: boolean }
 type Entry = { id: string; sender_name?: string; body?: string; timestamp?: number; kind?: string }
 type History = { threads?: { root: Entry; replies?: Entry[] }[]; truncated?: boolean }
-type ContextItem = { storageKey: string; title: string; hasContext: boolean }
 
 export default function Room() {
   const { roomId } = useParams()
   const navigate = useNavigate()
   const [room, setRoom] = useState<RoomInfo>()
   const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const [historyError, setHistoryError] = useState('')
-  const [sending, setSending] = useState(false)
   const [view, setView] = useState<'chat' | 'storage' | 'courtroom'>('chat')
   const [isOwner, setIsOwner] = useState(false)
   const [inviteLink, setInviteLink] = useState('')
   const [code, setCode] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [history, setHistory] = useState<History>()
-  const [contextItems, setContextItems] = useState<ContextItem[]>([])
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([])
-  const [contextError, setContextError] = useState('')
+  const [assistantQuestion, setAssistantQuestion] = useState('')
+  const [assistantAnswer, setAssistantAnswer] = useState('')
+  const [assistantBusy, setAssistantBusy] = useState(false)
+  const [assistantError, setAssistantError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -65,21 +63,12 @@ export default function Room() {
     const timer = window.setInterval(() => void loadHistory(), 10000)
     return () => { window.clearTimeout(first); window.clearInterval(timer) }
   }, [room?.switchVerified, view, loadHistory])
-  useEffect(() => {
-    if (!room?.switchVerified || view !== 'chat' || !roomId) return
-    let active = true
-    api.get<{ items: ContextItem[] }>(`/api/storage/chats/${roomId}/items`)
-      .then(response => { if (active) { setContextItems(response.data.items.filter(item => item.hasContext)); setContextError('') } })
-      .catch(() => { if (active) setContextError('Could not load available storage context.') })
-    return () => { active = false }
-  }, [room?.switchVerified, view, roomId])
-
-  async function send(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (!message.trim() || !roomId) return
-    setSending(true); setError(''); setNotice('')
-    try { await api.post(`/api/switch/rooms/${encodeURIComponent(roomId)}/messages`, { content: message.trim(), storageKeys: selectedKeys }); setMessage(''); setSelectedKeys([]); setNotice('Sent to the Switch room.'); await loadHistory() }
-    catch (err) { setError(axios.isAxiosError(err) && typeof err.response?.data?.msg === 'string' ? err.response.data.msg : 'Could not send the message.') }
-    finally { setSending(false) }
+  async function askAssistant(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!assistantQuestion.trim() || !roomId) return
+    setAssistantBusy(true); setAssistantError(''); setAssistantAnswer('')
+    try { const response = await api.post<{ answer: string }>(`/api/switch/rooms/${roomId}/assistant`, { question: assistantQuestion.trim() }, { timeout: 200000 }); setAssistantAnswer(response.data.answer) }
+    catch (err) { setAssistantError(axios.isAxiosError(err) && typeof err.response?.data?.msg === 'string' ? err.response.data.msg : 'Could not answer right now. Please try again.') }
+    finally { setAssistantBusy(false) }
   }
   async function requestCode() {
     setVerifying(true); setError(''); setNotice('')
@@ -111,7 +100,7 @@ export default function Room() {
       {room && <>{isOwner && <section className="collaboration"><button className="room-open" onClick={() => void createInvite()}>Create collaboration link</button><button className="room-open" onClick={() => void endCollaboration()}>End collaboration</button>{inviteLink && <><label htmlFor="invite-link">Share this link (expires in 24 hours)</label><input id="invite-link" value={inviteLink} readOnly onFocus={event => event.currentTarget.select()} /></>}</section>}
         <div className="room-tabs"><button aria-pressed={view === 'chat'} onClick={() => setView('chat')}>Chat</button><button aria-pressed={view === 'storage'} onClick={() => setView('storage')}>Storage</button><button aria-pressed={view === 'courtroom'} onClick={() => setView('courtroom')}>Courtroom</button></div>
         {view === 'storage' && roomId ? <RoomStorage roomId={roomId} /> : view === 'courtroom' && roomId ? <Courtroom roomId={roomId} /> : <section className="switch-room chat-panel"><div className="chat-heading"><div><span className="home-eyebrow">ROOM CONVERSATION</span><h2>Talk to your Switch room</h2></div>{room.switchVerified && <button className="room-open" onClick={() => void loadHistory()}>Refresh</button>}</div>
-          {!room.switchVerified ? <div className="room-verification"><h3>Verify access to this Switch room</h3><p>The room owner can request a code in the connected Switch room and enter it here. Everyone with access to that chat can see the code.</p>{isOwner ? <><button className="home-add" type="button" disabled={verifying} onClick={() => void requestCode()}>Send verification code</button><form onSubmit={verify}><label htmlFor="verify-code">Six-digit code</label><input id="verify-code" value={code} onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required /><button className="home-add" disabled={verifying}>Verify room</button></form></> : <p>Ask the room owner to verify access first.</p>}</div> : <><div className="chat-history" aria-label="Switch room messages">{historyError ? <p role="alert">{historyError}</p> : !history ? <p>Loading messages…</p> : entries.length ? entries.map(entry => <article className="chat-message" key={entry.id}><strong>{entry.sender_name || 'Switch'}</strong><p>{entry.body || ''}</p></article>) : <p>No messages yet. Start the conversation below.</p>}{history?.truncated && <p>Showing recent messages only.</p>}</div><form onSubmit={send}><label htmlFor="room-message">Your message</label><p id="dictation-help">Dictate with your installed Wispr Flow shortcut, then review before sending. Address an agent by name when needed.</p><textarea id="room-message" aria-describedby="dictation-help" value={message} onChange={e => setMessage(e.target.value)} maxLength={10000} placeholder="Write a message for your room…" required />{contextError && <p role="alert">{contextError}</p>}{contextItems.length > 0 && <fieldset className="context-picker"><legend>Share storage excerpts (optional)</legend><p>Selected text is posted to the connected Switch room and can be seen by everyone there. Up to five items; long text is truncated.</p>{contextItems.map(item => <label key={item.storageKey}><input type="checkbox" checked={selectedKeys.includes(item.storageKey)} disabled={!selectedKeys.includes(item.storageKey) && selectedKeys.length >= 5} onChange={event => setSelectedKeys(previous => event.target.checked ? [...previous, item.storageKey] : previous.filter(key => key !== item.storageKey))} /> {item.title}</label>)}</fieldset>}<button className="home-add" disabled={sending || !room.connected}>{sending ? 'Sending…' : 'Send to Switch →'}</button></form></>}
+          {!room.switchVerified ? <div className="room-verification"><h3>Verify access to this Switch room</h3><p>The room owner can request a code in the connected Switch room and enter it here. Everyone with access to that chat can see the code.</p>{isOwner ? <><button className="home-add" type="button" disabled={verifying} onClick={() => void requestCode()}>Send verification code</button><form onSubmit={verify}><label htmlFor="verify-code">Six-digit code</label><input id="verify-code" value={code} onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required /><button className="home-add" disabled={verifying}>Verify room</button></form></> : <p>Ask the room owner to verify access first.</p>}</div> : <><div className="chat-history" aria-label="Switch room messages">{historyError ? <p role="alert">{historyError}</p> : !history ? <p>Loading messages…</p> : entries.length ? entries.map(entry => <article className="chat-message" key={entry.id}><strong>{entry.sender_name || 'Switch'}</strong><p>{entry.body || ''}</p></article>) : <p>No messages yet in this room.</p>}{history?.truncated && <p>Showing recent messages only.</p>}</div><section className="room-assistant"><h3>Ask about this conversation</h3><p>Your question and recent room messages are shared with an external AI service. The answer is visible only here.</p><form onSubmit={askAssistant}><label htmlFor="assistant-question">Your question</label><textarea id="assistant-question" value={assistantQuestion} onChange={event => setAssistantQuestion(event.target.value)} maxLength={4000} placeholder="What would you like to know about this discussion?" required /><button className="home-add" disabled={assistantBusy || !room.connected}>{assistantBusy ? 'Thinking…' : 'Ask →'}</button></form>{assistantError && <p role="alert">{assistantError}</p>}{assistantAnswer && <article className="chat-message" aria-live="polite"><strong>Answer</strong><p style={{ whiteSpace: 'pre-wrap' }}>{assistantAnswer}</p></article>}</section></>}
         </section>}
       </>}
     </div></div></main>

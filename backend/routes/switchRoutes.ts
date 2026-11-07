@@ -2,7 +2,7 @@ import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import * as switchController from "../controller/switchController.js";
 import isLoggedIn from "../middleware/isLoggedIn.js";
-import { courtroomHistory, courtroomTurn } from "../controller/courtroomController.js";
+import { courtroomHistory, courtroomTurn, getCourtContext, saveCourtContext, prepareCourtBrief, startCourtSession, stepCourtSession, stopCourtSession } from "../controller/courtroomController.js";
 
 const router = Router();
 const messageLimiter = rateLimit({
@@ -24,7 +24,14 @@ router.post("/rooms/:roomId/verification", verificationLimiter, switchController
 router.post("/rooms/:roomId/verification/confirm", verificationLimiter, switchController.verifyRoom);
 router.get("/rooms/:roomId/messages", switchController.roomHistory);
 router.post("/rooms/:roomId/messages", messageLimiter, switchController.sendRoomMessage);
+router.post("/rooms/:roomId/assistant", messageLimiter, switchController.askRoomAssistant);
 router.get("/rooms/:roomId/courtroom", courtroomHistory);
 router.post("/rooms/:roomId/courtroom", messageLimiter, courtroomTurn);
+router.post("/rooms/:roomId/courtroom/session", startCourtSession);
+router.post("/rooms/:roomId/courtroom/session/step", messageLimiter, stepCourtSession);
+router.delete("/rooms/:roomId/courtroom/session", stopCourtSession);
+router.get("/rooms/:roomId/courtroom/context", getCourtContext);
+router.put("/rooms/:roomId/courtroom/context", saveCourtContext);
+router.post("/rooms/:roomId/courtroom/brief", messageLimiter, prepareCourtBrief);
 
 export default router;

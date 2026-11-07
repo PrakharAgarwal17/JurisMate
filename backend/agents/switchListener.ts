@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import WebSocket from "ws";
 import { switchAgentConfig } from "../config/switchAgent.js";
-import askGroq from "../tools/groq.js";
+import { runSwitchAgentMessage } from "./agentRuntime.js";
 import { postToSwitchRoom } from "../utils/switchMessaging.js";
 
 type Frame = {
   event?: string;
   id?: number;
-  data?: { code?: string; room_id?: string; payload?: { addressed?: boolean; body?: string; sender_kind?: string } };
+  data?: { code?: string; room_id?: string; payload?: { addressed?: boolean; body?: string; sender_kind?: string; sender_id?: string; sender_agent_id?: string } };
 };
 
 export function startSwitchListener(): void {
@@ -51,16 +51,15 @@ export function startSwitchListener(): void {
       queue = queue.then(async () => {
         if (failed) return;
         const { room_id: roomId, payload } = frame.data ?? {};
-        if (roomId && payload?.addressed && payload.sender_kind !== "platform" && payload.body?.trim()) {
+        if (typeof frame.id === "number" && cursor !== undefined && frame.id <= cursor) return;
+        const ownMessage = payload?.sender_id === agentId || payload?.sender_agent_id === agentId;
+        if (roomId && payload?.addressed && !ownMessage && payload.sender_kind !== "platform" && payload.body?.trim()) {
           let reply: string;
           try {
-            reply = await askGroq([
-              { role: "system", content: "You are JurisMate, an AI assistant for advocates. Answer the current request using only provided information. Do not invent facts or citations. Mark legal work as a draft for advocate review. Do not claim to have accessed documents or tools you have not used." },
-              { role: "user", content: payload.body.slice(0, 20000) },
-            ]);
+            reply = await runSwitchAgentMessage(roomId, payload.body);
           } catch (error) {
-            console.error("JurisMate model request failed", error);
-            reply = "JurisMate ka AI model abhi available nahi hai. Please try again later.";
+            console.error("JurisMate agent request failed", error);
+            reply = "JurisMate ka AI agent abhi available nahi hai. Please try again later.";
           }
           await postToSwitchRoom(roomId, reply);
         }

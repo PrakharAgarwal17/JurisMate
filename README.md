@@ -1,103 +1,128 @@
-# JurisMate — AI Junior Associate
+# JurisMate — Your AI Junior Associate
 
-JurisMate is a work-in-progress legal workspace for advocates. The project aims to bring people and AI agents together around a legal matter: discuss a case in Discord or Slack through Switch, organize matter-related material on a website, and prepare research and drafts for an advocate to review.
+JurisMate is an AI-assisted legal workspace for advocates. It brings matter-specific conversations, documents and AI assistance together, while the advocate remains responsible for reviewing facts, sources, drafts and decisions.
 
-**Advocates remain responsible for checking facts, sources, deadlines, and every final decision.** AI-generated material is a starting point for review, not a substitute for professional judgment.
+The project combines **Switch Rooms** with a MERN-based web application. Switch connects people and agents in their existing chat platform; the JurisMate website provides a workspace for linked conversations, case materials and courtroom simulation.
 
-## Use case
+> JurisMate is a work in progress. AI outputs and courtroom simulations are not court judgments or a substitute for professional legal judgment. Verify facts, legal claims, citations and deadlines independently.
 
-An advocate working on an agreement or dispute can use a dedicated chat to discuss the matter with collaborators and an AI assistant. In the planned workflow, the team can:
+## Why JurisMate?
 
-1. Describe the client's problem and identify missing facts and documents.
-2. Upload agreements, PDFs, and images to a matter-specific storage area.
-3. Ask agents to help organize evidence, prepare a timeline, research relevant Indian law, identify risks, and draft an initial response.
-4. Review the supporting information and edit, accept, or reject the proposed work.
-5. Revisit stored documents, important notes, conversations, and approved work later.
+Legal work often spans group conversations, files, notes and multiple rounds of review. JurisMate aims to keep these connected to a specific matter:
 
-The website is intended to be the matter workspace for storage, collaboration, and a future courtroom simulation. Switch is intended to coordinate agents in the team's chat platform.
+- Discuss a matter with collaborators and an AI agent in a Switch-connected chat.
+- Link that channel to a workspace on the website.
+- Keep PDFs, images and important notes in the room's storage.
+- Ask questions about the room conversation or use supported agent tools on stored material.
+- Explore both sides of a dispute in a courtroom simulation before deciding what to do next.
 
-## Project status
+### Example use case
 
-The backend is in development. The frontend is currently the default Vite starter, not the finished JurisMate interface. Features below are separated by their current implementation status.
+An advocate and a junior discuss a contractual dispute in a Discord channel connected to Switch. They link that channel to a JurisMate room, verify access and save the agreement in room storage. They can ask the connected agent to summarize the discussion or examine extracted document text. In the website's courtroom, they provide a topic and select extracted files; opposing AI advocates take turns questioning and answering while the user can give an instruction to an individual participant. The advocate reviews the result and verifies the original documents and law.
 
-### Available backend components
+## How Switch is used
 
-- **Authentication:** email/password signup with email OTP, bcrypt password hashing, access and refresh tokens in HTTP-only cookies, and Google OAuth account linking. OTP state is held in server memory and expires after five minutes.
-- **Profile image:** an authenticated upload route stores the image using Cloudinary.
-- **Switch integration:** a registered JurisMate agent can connect to Switch through a WebSocket listener. It receives addressed messages, sends their text to Groq, and posts the response to the Switch room. Switch must have the agent in the room and a messaging platform connected for external chat delivery.
-- **Room mapping:** authenticated users can create, list, and disconnect website records associated with Switch room IDs. Creating a mapping currently does not verify the user's ownership or membership of that Switch room.
-- **Storage APIs:** upload PDFs and supported images to Cloudinary, list stored items, create signed download links, and save important notes under a room record.
-- **Document processing:** extract PDF text, attempt OCR on up to five pages without extracted text, and analyze supported images with Groq. Large extracted text can be truncated.
-- **Highlights:** store a selected quote, optional page number, and note as metadata for a stored file. This does not modify the original PDF or image.
-- **Chat summary:** a backend endpoint can read available Switch room context, save messages and a generated summary against a room record. This is separate from the live listener and requires Switch room access and Groq configuration.
-
-### Planned or incomplete
-
-- A complete website with signup, login, room chat, storage, and agent interaction.
-- Verified account-to-room ownership, room invitations, roles, live collaboration, and revocation.
-- Automatic storage of agent output and attachments from Discord/Slack.
-- Agent orchestration and tool invocation from the live Switch listener. The role definitions in `backend/agents` describe intended responsibilities; they are not yet a fully connected team of autonomous agents.
-- File editing and applying visual highlights to PDF/image files.
-- Advocate review and approval controls, case memory, and verified deadline reminders.
-- A courtroom simulation with opposing agents, a judge, user participation, and optional session storage.
-- End-to-end Discord/Slack message delivery and the full Google OAuth sign-in flow still need to be verified in the target environment.
-
-## Intended agents
-
-The project has role definitions for the following responsibilities. They describe the intended workflow; implementation and tool access vary by role.
-
-| Agent | Intended responsibility |
-| --- | --- |
-| Client Intake | Understand the problem and ask follow-up questions. |
-| Chat Summarizer | Summarize discussions, decisions, and open questions. |
-| Document | Analyze documents and extract relevant information. |
-| Missing Information | Identify missing facts and documents. |
-| Evidence | Organize evidence, timelines, and possible contradictions. |
-| Legal Research | Find relevant Indian laws and judgments with verifiable sources. |
-| Risk Analysis | Identify risky clauses and weaknesses. |
-| Opposition | Explore possible arguments from the other side. |
-| Drafting | Prepare initial notices, replies, and case briefs. |
-| Review | Check drafts for factual errors and unsupported claims. |
-| Deadline Tracker | Flag possible deadlines for advocate verification. |
-| Courtroom roles | Claimant, respondent, judge, and jury roles for a future simulation. |
-
-## Architecture
+Switch is the **conversation and agent coordination layer** between external chat platforms and JurisMate's backend. It is a separate service; the website and backend do not replace the Switch server.
 
 ```text
-Discord / Slack
-       ↕
-Switch server and collaboration bridge
-       ↕ WebSocket events and agent API
-JurisMate backend ─────→ Groq API
-       ↕                    (text and image analysis)
-MongoDB + Cloudinary
-       ↕
-React website (planned workspace; currently starter UI)
+Advocate / collaborators
+        │
+        ▼
+Discord or Slack channel
+        │
+        ▼
+Switch server + messaging bridge
+        │  addressed events / agent responses
+        ▼
+JurisMate Switch agent ──► role-specific instructions and tools ──► Groq
+        │                           │
+        │                           └──► matter-scoped storage and summaries
+        ▼
+JurisMate backend ──► MongoDB + Cloudinary
+        ▲
+        │
+React website: linked room, storage, room Q&A and courtroom
 ```
 
-The current live agent handles the addressed message text. It does not yet automatically retrieve website storage, use the other agent roles, or call the storage tools while answering. Switch rooms and JurisMate room records must be configured separately.
+The arrows represent the implemented integration points, not a guarantee that every external deployment is configured or tested.
 
-## Tech stack
+1. A Switch server runs separately and connects to a Discord or Slack app through its messaging bridge.
+2. A registered JurisMate agent is invited to a Switch room associated with the channel. The backend connects to Switch using the agent's WebSocket and listens for addressed events.
+3. JurisMate routes supported requests to a role and its allowed tools. Groq provides model responses; supported tools can read room storage, summarize a room or save requested information. Tool access requires a linked, verified JurisMate room.
+4. The backend sends the agent response back through Switch, which handles delivery to the connected platform.
+5. On the website, a signed-in user connects a channel using its Discord or Slack link. The room owner requests a verification code in the connected chat and enters it in JurisMate before accessing the connected conversation features.
 
-| Area | Technology |
+For role selection, the backend understands commands such as `!jm summary <request>` and `!jm document <request>` within an addressed agent message. `!jm help` lists available roles. Exact mention and delivery behavior depends on the connected Switch bridge and room configuration.
+
+**Website room Q&A is a separate path:** it reads recent Switch room messages and sends a bounded excerpt with the user's question to Groq. Its answer is displayed on the website; it is not posted as a message to the connected channel. It does not automatically include every stored file.
+
+## Current features
+
+### Accounts and collaboration
+
+- Email/password signup, email OTP verification, bcrypt password hashing and JWT access/refresh cookies.
+- Google OAuth integration and profile image upload when the relevant credentials are configured.
+- Matter rooms linked to Discord or Slack channels through Switch.
+- Room verification and time-limited collaboration invitations; the owner can end collaboration.
+
+### Room conversation and storage
+
+- View recent messages from the linked Switch room and ask questions about the visible conversation.
+- Upload PDFs and supported images, save important notes and open stored files through signed links.
+- Import supported attachments from recent Switch room history into storage, subject to the current import limit and availability.
+- Extract PDF/image context for supported workflows and analyze images. Extraction can be partial or truncated; scanned PDFs use a limited OCR path.
+- Record requested highlights as metadata. Highlight markers do **not** modify the original document.
+- Generate and save a room summary with the supported summary workflow.
+
+### Courtroom simulation
+
+- Add a topic and select up to five room files whose context has been extracted.
+- Start a 15-minute simulation with a claimant advocate, respondent advocate and judge character.
+- The opposing advocates take turns asking and answering; users can select a character to direct an instruction to it.
+- The page displays short exchanges and maintains a room transcript. Turns are paced to reduce usage; timeouts can skip a stalled turn.
+- The page must remain open for automatic turns to continue. The timer and transcript are simulation aids, not legal deadlines or judgments.
+
+### Agent roles and tools
+
+The code defines roles for intake, conversation summary, documents, missing information, evidence, legal research, risk, opposition, drafting, review, deadlines, and courtroom participants. The Switch agent runtime assigns each role a set of allowed tools; a role name alone does not guarantee that a complete legal workflow is implemented.
+
+Available tool paths include room storage search, text extraction, image analysis, room summarization, saving important information and storing highlight metadata. Agent requests and tool results are subject to configuration, model limits and room access checks.
+
+## Scope and roadmap
+
+The longer-term goal is a matter-wise AI junior associate that can help with client intake, document analysis, missing-information checklists, evidence timelines, research, risk analysis, opposition arguments and draft preparation. Switch is intended to keep this work connected to the team's conversation, while the website provides organized matter storage and review.
+
+The following are **future work or require further validation**, rather than completed guarantees:
+
+- Verified Indian legal research with reliable source links and citation verification.
+- Full document Q&A with dependable page-level citations and coverage beyond extracted excerpts.
+- Deadline extraction and reminders with advocate verification.
+- Reliable Hindi/regional-language OCR, intake and translation.
+- A complete advocate edit/approve/reject workflow, draft export and audit trail.
+- Fine-grained senior/junior/client permissions, conflict checks and sensitive-data redaction.
+- Production-ready multi-user Switch identity mapping, durable listener recovery and deployment monitoring.
+- Production-ready courtroom orchestration, persistent background sessions and thoroughly validated agent interaction.
+
+## Technology
+
+| Area | Stack |
 | --- | --- |
-| Frontend | React, TypeScript, Vite |
-| Backend | Node.js, Express, TypeScript |
-| Database | MongoDB, Mongoose |
-| Authentication | JWT access/refresh cookies, bcrypt, Passport Google OAuth, Nodemailer |
-| Validation and uploads | Zod, Multer |
-| File storage | Cloudinary |
-| AI | Groq API |
-| Agent and chat coordination | Switch, Discord/Slack bridges |
+| Website | React, TypeScript, Vite, React Router, Redux Toolkit, Tailwind CSS, Axios |
+| API | Node.js, Express, TypeScript, Zod |
+| Database | MongoDB with Mongoose |
+| Accounts | JWT cookies, bcrypt, Passport Google OAuth, Nodemailer |
+| Files | Multer, Cloudinary, PDF text extraction |
+| AI | Groq text and vision models |
+| Conversation and agents | Switch Rooms, Discord/Slack bridges and JurisMate's agent runtime |
 
-## Getting started
+## Local setup
 
 ### Prerequisites
 
-- Node.js and npm, plus a reachable MongoDB instance.
-- A running Switch server with JurisMate registered and added to the intended Switch room.
-- A Groq API key. For uploads, email OTP, or Google login, configure the respective Cloudinary, Gmail, and Google OAuth credentials.
-- A connected Discord or Slack app in Switch if testing through those platforms.
+- Node.js and npm.
+- Local MongoDB or a reachable MongoDB Atlas deployment.
+- A running Switch server, its agent credentials, and a connected Discord or Slack bridge for Switch features.
+- A Groq API key for AI features; configure Cloudinary, email and Google OAuth for the corresponding features.
 
 ### Backend
 
@@ -106,28 +131,19 @@ cd backend
 npm install
 ```
 
-Copy `backend/.env.example` to `backend/.env` and fill in the required values:
+Copy `backend/.env.example` to `backend/.env` and fill in the required settings. The example lists all environment variable names. For local MongoDB:
 
-| Variables | Purpose |
-| --- | --- |
-| `PORT`, `CLIENT_URL`, `MONGO_URL` | Server, frontend origin, and MongoDB connection. The app selects the `jurismate` database. |
-| `ACCESS_SECRET_KEY`, `REFRESH_SECRET_KEY`, `COOKIE_SAME_SITE` | Authentication and cookie configuration. Use distinct, strong secrets. |
-| `EMAIL`, `PASSWORD` | Gmail account and app password for OTP delivery. |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` | Google OAuth. Add the callback URL to the Google Cloud OAuth client's authorized redirect URIs. |
-| `CLOUD_NAME`, `API_KEY`, `API_SECRET` | Cloudinary account credentials. |
-| `SWITCH_AGENT_BRIDGE_URL`, `SWITCH_AGENT_ID`, `SWITCH_AGENT_API_KEY` | The Switch server URL and credentials for the registered JurisMate agent. |
-| `SWITCH_REGISTRATION_TOKEN` | Registration credential used when registering a new custom agent with Switch. |
-| `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_VISION_MODEL` | Groq access and text/vision model selection. |
+```env
+MONGO_URL=mongodb://127.0.0.1:27017
+```
 
-Registration and agent API keys have different purposes. Keep all credentials in the ignored `.env` file and do not commit them. A Switch agent API key is returned during registration; avoid registering the same agent again or overwriting its credentials unintentionally.
-
-Start the backend:
+The backend selects the database named `jurismate`. Run:
 
 ```bash
 npm run dev
 ```
 
-Development uses `tsx watch`; `tsconfig.json` has `noEmit`, so watching does not create JavaScript or source maps alongside TypeScript files. `npm run build` intentionally writes production output to `backend/dist`.
+The backend defaults to `http://localhost:3000`. Development uses `tsx watch` with TypeScript `noEmit`, so JavaScript and source maps are not written beside source files. `npm run build` produces the production output under `backend/dist`.
 
 ### Frontend
 
@@ -137,42 +153,63 @@ npm install
 npm run dev
 ```
 
-The current frontend is a starter page. It does not yet provide the JurisMate flows described above.
+Open [http://localhost:5173](http://localhost:5173). The development server proxies `/api` requests to the local backend.
 
-## Backend API overview
+### Environment configuration
 
-The backend defaults to port `5000`. Room and storage routes require a signed-in user.
+| Variables | Purpose |
+| --- | --- |
+| `PORT`, `CLIENT_URL`, `MONGO_URL` | Backend port, allowed frontend origin and MongoDB connection. |
+| `ACCESS_SECRET_KEY`, `REFRESH_SECRET_KEY`, `COOKIE_SAME_SITE` | Authentication and cookie settings; use distinct, strong secrets. |
+| `EMAIL`, `PASSWORD` | Gmail account and app password for OTP email. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` | Google OAuth; register the callback with the OAuth provider. |
+| `CLOUD_NAME`, `API_KEY`, `API_SECRET` | Cloudinary upload and storage credentials. |
+| `SWITCH_AGENT_BRIDGE_URL`, `SWITCH_AGENT_ID`, `SWITCH_AGENT_API_KEY` | Switch server address and registered agent credentials. |
+| `SWITCH_REGISTRATION_TOKEN` | Registration credential used by the agent registration script where applicable. |
+| `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_VISION_MODEL` | Model API key and text/vision model selection. |
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| POST | `/api/auth/signup` | Start email/password signup and send an OTP. |
-| POST | `/api/auth/verify-otp` | Verify OTP and complete account setup. |
-| POST | `/api/auth/signin` | Sign in and set authentication cookies. |
-| POST | `/api/auth/refresh` | Refresh authentication tokens. |
-| POST | `/api/auth/signout` | Sign out and revoke the stored refresh token. |
-| GET | `/api/auth/google` | Start Google OAuth. |
-| POST | `/api/auth/profile/image` | Upload a profile image as multipart field `image`. |
-| GET, POST | `/api/switch/rooms` | List or create a room mapping. |
-| DELETE | `/api/switch/rooms/:roomId` | Disconnect a room mapping. |
-| POST | `/api/switch/rooms/:roomId/messages` | Send a message through the configured Switch agent. |
-| GET | `/api/storage/chats/:chatId/items` | List a room's stored items. |
-| POST | `/api/storage/chats/:chatId/files` | Upload a PDF or image as multipart field `file`. |
-| POST | `/api/storage/chats/:chatId/important` | Save an important note. |
-| POST | `/api/storage/chats/:chatId/summarize` | Generate and save a chat summary. |
-| GET | `/api/storage/items/:storageId/download` | Create a temporary signed download link. |
-| POST | `/api/storage/items/:storageId/context` | Extract document context. |
-| POST | `/api/storage/items/:storageId/analyze-image` | Analyze a stored image. |
-| POST | `/api/storage/items/:storageId/highlights` | Save highlight metadata. |
+Keep credentials in `backend/.env`, outside version control. Switch registration credentials and agent API credentials have different purposes. Avoid re-registering or overwriting an existing agent without understanding the effect on its current key.
 
-## Data and review boundaries
+### Connecting a channel
 
-- Content submitted to Groq for responses, image analysis, OCR, or summaries is sent to Groq; uploaded files are stored with Cloudinary. Review provider settings and permissions before using confidential matter data.
-- Storage routes check the signed-in user against the room owner. Switch room ownership is not yet verified when a mapping is created, so the current mapping flow needs stronger authorization before relying on it for sensitive collaboration.
-- The live listener's reconnect cursor is held in memory; restart recovery and multi-instance operation need further work.
-- Agent output may contain mistakes or unsupported information. Verify citations, legal interpretation, and deadlines before relying on them.
+1. Start Switch and connect the desired Discord or Slack app in Switch.
+2. Add the JurisMate agent to the relevant Switch room/channel.
+3. Set the Switch server address, agent ID and agent API key in the backend environment and start the backend.
+4. Sign in to JurisMate, add a room using the channel link and follow the verification prompt.
+5. Open the room conversation or storage. Upload a document or import supported chat attachments, then extract its context before selecting it for the courtroom.
+
+The verification code is posted in the connected room and can be seen by its participants. Treat access to that channel accordingly.
+
+## Deployment and privacy
+
+- A hosted backend cannot reach a Switch server running at `localhost` on a developer's computer. Deploy Switch separately or provide a secured, reachable Switch server address and appropriate agent credentials.
+- MongoDB stores user, room and application data; uploaded files are stored in Cloudinary. AI requests may send room messages, case context, document excerpts or images to Groq. Review provider settings and obtain appropriate authorization before using confidential client material.
+- Current verification and collaboration checks are useful development controls, not a complete security audit or a substitute for fine-grained authorization. Review deployment, access and data retention before production use.
+- The Switch listener's reconnect cursor is currently held in process memory. Restarts and multi-instance deployments require additional work.
+- Free-tier model rate limits and quotas can interrupt analysis or a simulation. Partial document context and generated answers must be checked against original sources.
+
+## Repository layout
+
+```text
+backend/
+  agents/       Switch listener, agent roles and tool routing
+  config/       Database, Cloudinary, OAuth and Switch configuration
+  controller/   Authentication, room, storage and courtroom handlers
+  middleware/   Authentication, request origin and upload handling
+  models/       User, room, message and storage models
+  routes/       API routes
+  tools/        Model, file, summary and storage helpers
+  utils/        Switch messaging, auth tokens and email helpers
+frontend/
+  src/pages/       Landing, auth, home and matter room pages
+  src/components/  Courtroom, room storage and shared interface components
+  src/context/     Redux state
+  src/services/    API client
+```
 
 ## References
 
-- [Switch documentation](https://docs.switchagents.ai/)
-- [Switch Rooms repository](https://github.com/sandbox-quantum/switch)
+- [Switch Rooms documentation](https://docs.switchagents.ai/)
+- [Switch agent protocol](https://docs.switchagents.ai/switch-rooms/internals/agent-protocol)
+- [Switch agent connection](https://docs.switchagents.ai/switch-rooms/internals/agent-connection)
 - [Groq API documentation](https://console.groq.com/docs)

@@ -4,7 +4,7 @@ import api from '../services/api'
 
 type Item = { _id: string; storageKey: string; kind: 'file' | 'note'; title: string; content?: string; mimeType?: string }
 
-export default function RoomStorage({ roomId }: { roomId: string }) {
+export default function RoomStorage({ roomId, onChange }: { roomId: string; onChange?: () => void }) {
   const [items, setItems] = useState<Item[]>([])
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
@@ -18,10 +18,22 @@ export default function RoomStorage({ roomId }: { roomId: string }) {
 
   useEffect(() => {
     let active = true
-    api.get<{ items: Item[] }>(`/api/storage/chats/${roomId}/items`)
-      .then(response => { if (active) setItems(response.data.items) })
-      .catch(() => { if (active) setError('Could not load storage. Please try again.') })
-      .finally(() => { if (active) setLoading(false) })
+    async function loadStorage() {
+      try {
+        const response = await api.get<{ items: Item[] }>(`/api/storage/chats/${roomId}/items`)
+        if (active) setItems(response.data.items)
+        try {
+          const result = await api.post<{ imported: number; skipped: number }>(`/api/storage/chats/${roomId}/import-switch`)
+          if (!active) return
+          if (result.data.imported) {
+            const updated = await api.get<{ items: Item[] }>(`/api/storage/chats/${roomId}/items`)
+            if (active) { setItems(updated.data.items); setNotice(`Imported ${result.data.imported} chat files.`) }
+          }
+        } catch { if (active) setNotice('Chat files could not be imported automatically. Use Import chat files to retry.') }
+      } catch { if (active) setError('Could not load storage. Please try again.') }
+      finally { if (active) setLoading(false) }
+    }
+    void loadStorage()
     return () => { active = false }
   }, [roomId])
 
@@ -32,7 +44,7 @@ export default function RoomStorage({ roomId }: { roomId: string }) {
     try {
       const data = new FormData(); data.append('file', file)
       const response = await api.post<{ item: Item }>(`/api/storage/chats/${roomId}/files`, data)
-      setItems(previous => [response.data.item, ...previous]); setFile(null); setFileKey(value => value + 1)
+      setItems(previous => [response.data.item, ...previous]); setFile(null); setFileKey(value => value + 1); onChange?.()
     } catch (err) { setError(axios.isAxiosError(err) && typeof err.response?.data?.msg === 'string' ? err.response.data.msg : 'Upload failed. Please try again.') }
     finally { setBusy(false) }
   }
@@ -42,7 +54,7 @@ export default function RoomStorage({ roomId }: { roomId: string }) {
     try {
       const result = await api.post<{ imported: number; skipped: number }>(`/api/storage/chats/${roomId}/import-switch`)
       const response = await api.get<{ items: Item[] }>(`/api/storage/chats/${roomId}/items`)
-      setItems(response.data.items); setNotice(`Imported ${result.data.imported} files. ${result.data.skipped} unsupported or unavailable files skipped.`)
+      setItems(response.data.items); setNotice(`Imported ${result.data.imported} files. ${result.data.skipped} unsupported or unavailable files skipped.`); onChange?.()
     } catch { setError('Could not import files. Verify the room and check Switch and Cloudinary.') }
     finally { setBusy(false) }
   }
@@ -51,7 +63,7 @@ export default function RoomStorage({ roomId }: { roomId: string }) {
     event.preventDefault(); setBusy(true); setError('')
     try {
       const response = await api.post<{ item: Item & { contextText?: string } }>(`/api/storage/chats/${roomId}/important`, { title, content })
-      setItems(previous => [{ ...response.data.item, content }, ...previous]); setTitle(''); setContent('')
+      setItems(previous => [{ ...response.data.item, content }, ...previous]); setTitle(''); setContent(''); onChange?.()
     } catch { setError('Could not save your note. Please try again.') }
     finally { setBusy(false) }
   }
@@ -69,6 +81,7 @@ export default function RoomStorage({ roomId }: { roomId: string }) {
     try {
       const response = await api.post<{ storageKey: string; context: string; truncated?: boolean }>(`/api/storage/items/${item._id}/context`)
       setAnalysis({ key: response.data.storageKey, text: response.data.context + (response.data.truncated ? '\n\n[Content was truncated.]' : '') })
+      onChange?.()
     } catch { setError('Could not extract file context. Please try again.') }
     finally { setBusy(false) }
   }

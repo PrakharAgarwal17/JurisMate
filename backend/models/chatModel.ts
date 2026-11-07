@@ -10,6 +10,13 @@ const summarySchema = new mongoose.Schema(
   { _id: false },
 );
 
+const courtBriefSchema = new mongoose.Schema({
+  fingerprint: { type: String, required: true },
+  summary: { type: String, required: true },
+  notes: { type: String, required: true },
+  createdAt: { type: Date, required: true },
+}, { _id: false });
+
 const chatSchema = new mongoose.Schema(
   {
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -24,7 +31,11 @@ const chatSchema = new mongoose.Schema(
     verificationHash: { type: String, select: false },
     verificationExpiresAt: { type: Date, select: false },
     summary: { type: summarySchema },
-    courtroom: { type: [{ role: { type: String, enum: ["user", "claimant", "respondent", "judge"], required: true }, text: { type: String, required: true } }], default: [] },
+    courtroom: { type: [{ role: { type: String, enum: ["user", "claimant", "respondent", "judge"], required: true }, text: { type: String, required: true }, phase: { type: String, enum: ["question", "answer"] } }], default: [] },
+    courtContext: { type: String, default: "", maxlength: 4000 },
+    courtStorageKeys: { type: [String], default: [] },
+    courtBrief: { type: courtBriefSchema },
+    courtSession: { endsAt: Date, nextAt: Date, turn: { type: Number, default: 0 }, lockedUntil: Date, active: { type: Boolean, default: false } },
   },
   // Keep existing room records when upgrading the old SwitchRoom model.
   { timestamps: true, collection: "switchrooms" },
